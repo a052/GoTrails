@@ -19,6 +19,7 @@ import { freeze, type WritableDraft } from 'immer';
 import {
     GPXFile,
     parseGPX,
+    parseKML,
     Track,
     TrackPoint,
     TrackSegment,
@@ -76,7 +77,7 @@ export function createFile() {
 export function triggerFileInput() {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.gpx';
+    input.accept = '.gpx,.kml';
     input.multiple = true;
     input.className = 'hidden';
     input.onchange = () => {
@@ -101,20 +102,47 @@ export async function loadFiles(list: FileList | File[]) {
     boundsManager.fitBoundsOnLoad(ids);
 }
 
+// Choose the parser for a loaded file. The extension decides when present; otherwise (drag-drop, URL
+// params and embeds build File objects whose names may lack an extension) the content is sniffed for
+// the KML vs GPX root element so those entry points work too.
+function detectFormat(name: string, data: string): 'gpx' | 'kml' {
+    const ext = name.slice(name.lastIndexOf('.') + 1).toLowerCase();
+    if (ext === 'kml') {
+        return 'kml';
+    }
+    if (ext === 'gpx') {
+        return 'gpx';
+    }
+    const start = data.charCodeAt(0) === 0xfeff ? 1 : 0;
+    const head = data.slice(start, start + 2048);
+    const kmlIndex = head.search(/<kml[\s>]/i);
+    const gpxIndex = head.search(/<gpx[\s>]/i);
+    if (kmlIndex !== -1 && (gpxIndex === -1 || kmlIndex < gpxIndex)) {
+        return 'kml';
+    }
+    return 'gpx';
+}
+
 export async function loadFile(file: File): Promise<GPXFile | null> {
     const result = await new Promise<GPXFile | null>((resolve) => {
         const reader = new FileReader();
         reader.onload = () => {
             const data = reader.result?.toString() ?? null;
             if (data) {
-                const gpx = parseGPX(data);
-                if (gpx.metadata === undefined) {
-                    gpx.metadata = {};
+                try {
+                    const gpx =
+                        detectFormat(file.name, data) === 'kml' ? parseKML(data) : parseGPX(data);
+                    if (gpx.metadata === undefined) {
+                        gpx.metadata = {};
+                    }
+                    if (gpx.metadata.name === undefined || gpx.metadata.name.trim() === '') {
+                        gpx.metadata.name = file.name.split('.').slice(0, -1).join('.');
+                    }
+                    resolve(gpx);
+                } catch {
+                    // A malformed or unrecognized file must not break the whole batch in loadFiles.
+                    resolve(null);
                 }
-                if (gpx.metadata.name === undefined || gpx.metadata.name.trim() === '') {
-                    gpx.metadata.name = file.name.split('.').slice(0, -1).join('.');
-                }
-                resolve(gpx);
             } else {
                 resolve(null);
             }

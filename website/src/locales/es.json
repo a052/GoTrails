@@ -20,6 +20,7 @@
         "export": "Exportar...",
         "export_all": "Exportar todo...",
         "export_options": "Opciones de exportación",
+        "export_format": "Formato de exportación",
         "download_file": "Descargar archivo",
         "download_files": "Descargar archivos",
         "edit": "Editar",

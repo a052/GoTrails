@@ -20,6 +20,7 @@
         "export": "Exportieren...",
         "export_all": "Alle exportieren...",
         "export_options": "Export-Einstellungen",
+        "export_format": "Exportformat",
         "download_file": "Datei herunterladen",
         "download_files": "Dateien herunterladen",
         "edit": "Bearbeiten",

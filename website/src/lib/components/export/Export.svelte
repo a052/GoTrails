@@ -9,6 +9,7 @@
         exportSelectedFiles,
         ExportState,
         exportState,
+        type ExportFormat,
     } from '$lib/components/export/utils.svelte';
     import { currentTool } from '$lib/components/toolbar/tools';
     import {
@@ -29,6 +30,7 @@
     import { get } from 'svelte/store';
 
     let open = $derived(exportState.current !== ExportState.NONE);
+    let exportFormat: ExportFormat = $state('gpx');
     let exportOptions: Record<string, boolean> = $state({
         time: true,
         hr: true,
@@ -91,15 +93,36 @@
         <Dialog.Content
             class="fixed left-[50%] top-[50%] z-50 w-fit max-w-full translate-x-[-50%] translate-y-[-50%] flex flex-col items-center gap-3 border bg-background p-3 shadow-lg rounded-md"
         >
+            <div class="w-full flex flex-row items-center gap-2">
+                <Label class="shrink-0">
+                    {i18n._('menu.export_format')}
+                </Label>
+                <div class="grow flex flex-row gap-1">
+                    <Button
+                        variant={exportFormat === 'gpx' ? 'default' : 'outline'}
+                        class="grow"
+                        onclick={() => (exportFormat = 'gpx')}
+                    >
+                        GPX
+                    </Button>
+                    <Button
+                        variant={exportFormat === 'kml' ? 'default' : 'outline'}
+                        class="grow"
+                        onclick={() => (exportFormat = 'kml')}
+                    >
+                        KML
+                    </Button>
+                </div>
+            </div>
             <div class="w-full flex flex-row flex-wrap gap-2">
                 <Button
                     variant="outline"
                     class="grow"
                     onclick={() => {
                         if (exportState.current === ExportState.SELECTION) {
-                            exportSelectedFiles(exclude);
+                            exportSelectedFiles(exclude, exportFormat);
                         } else if (exportState.current === ExportState.ALL) {
-                            exportAllFiles(exclude);
+                            exportAllFiles(exclude, exportFormat);
                         }
                         open = false;
                         exportState.current = ExportState.NONE;
