@@ -145,9 +145,10 @@ export function buildGPX(file: GPXFile, exclude: string[]): string {
     gpx.attributes['xmlns:gpxpx'] = 'http://www.garmin.com/xmlschemas/PowerExtension/v1';
     gpx.attributes['xmlns:gpx_style'] = 'http://www.topografix.com/GPX/gpx_style/0/2';
 
-    if (gpx.trk.length === 1 && (gpx.trk[0].name === undefined || gpx.trk[0].name === '')) {
-        gpx.trk[0].name = gpx.metadata.name;
-    }
+    // No name seeding here: a single unnamed track keeps its name as-is. The file's name travels
+    // in <metadata><name> anyway; copying it into the track name (the pre-2024-07 upstream
+    // behavior) fabricates a name the source file never had, which surfaces as a surprise label
+    // in consumers like the OSM iD editor (label = desc || name).
 
     return builder.build({
         '?xml': {

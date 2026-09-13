@@ -358,6 +358,12 @@ function lineStyleFromPlacemark(pm: XmlNode, styles: StyleTable): LineStyleExten
 
 function dispatchPlacemark(pm: XmlNode, styles: StyleTable, result: GPXFileType): void {
     const name = str(pm.name);
+    // KML descriptions are commonly HTML (photos, links, notes), and they are routed to GPX *cmt*
+    // rather than desc: the OSM iD editor (and anything built on togeojson) renders the GPX desc
+    // as the feature's plain-text map label (label = desc || name), so HTML in desc leaks as raw
+    // tag soup there, while cmt is parsed but never used as a label. gpx.studio's waypoint popup
+    // renders cmt exactly like desc (sanitized HTML), so the content stays fully visible here.
+    // buildKML mirrors this by emitting cmt (when desc is empty) back as the KML description.
     const desc = str(pm.description);
 
     const segments = extractSegments(pm);
@@ -367,7 +373,7 @@ function dispatchPlacemark(pm: XmlNode, styles: StyleTable, result: GPXFileType)
             track.name = name;
         }
         if (desc) {
-            track.desc = desc;
+            track.cmt = desc;
         }
         const line = lineStyleFromPlacemark(pm, styles);
         if (line) {
@@ -391,7 +397,7 @@ function dispatchPlacemark(pm: XmlNode, styles: StyleTable, result: GPXFileType)
                 wpt.name = name;
             }
             if (desc) {
-                wpt.desc = desc;
+                wpt.cmt = desc;
             }
             result.wpt.push(wpt);
         }
@@ -626,9 +632,11 @@ export function buildKML(file: GPXFile, exclude: string[] = []): string {
     for (const wpt of gpx.wpt) {
         placemarks.push(buildPointPlacemark(wpt));
     }
+    // Track names are exported as-is: no borrowing the file name for a single unnamed track (the
+    // Document name already carries it, and a fabricated track name shows up as a surprise label
+    // in consumers like the OSM iD editor). Matches buildGPX, which no longer seeds either.
     gpx.trk.forEach((trk) => {
-        const nameFallback = trk.name ?? (gpx.trk.length === 1 ? gpx.metadata?.name : undefined);
-        const pm = buildTrackPlacemark(trk, channels, nameFallback);
+        const pm = buildTrackPlacemark(trk, channels, trk.name);
         if (pm) {
             placemarks.push(pm);
         }
@@ -693,7 +701,7 @@ function buildPointPlacemark(wpt: WaypointType): XmlNode {
 function buildTrackPlacemark(
     trk: TrackType,
     channels: Channel[],
-    nameFallback: string | undefined
+    name: string | undefined
 ): XmlNode | null {
     const segments = (trk.trkseg ?? []).filter((seg) => seg.trkpt.length > 0);
     if (segments.length === 0) {
@@ -701,11 +709,14 @@ function buildTrackPlacemark(
     }
 
     const pm: XmlNode = {};
-    if (nameFallback) {
-        pm.name = nameFallback;
+    if (name) {
+        pm.name = name;
     }
-    if (trk.desc) {
-        pm.description = { __cdata: trk.desc };
+    // desc first (primary GPX description), then cmt — where descriptions of KML origin live, so
+    // they round-trip back into the KML description. Mirrors buildPointPlacemark.
+    const desc = trk.desc ?? trk.cmt;
+    if (desc) {
+        pm.description = { __cdata: desc };
     }
 
     const style = trk.extensions?.['gpx_style:line'];
