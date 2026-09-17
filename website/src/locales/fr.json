@@ -139,6 +139,8 @@
                 "tooltip": "Revenir au point de départ par le même itinéraire"
             },
             "start_loop_here": "Démarrer la boucle ici",
+            "show_info": "Afficher les infos",
+            "anchor_info": "Infos du point",
             "help_no_file": "Sélectionnez une trace pour utiliser l'outil de routage, ou cliquez sur la carte pour commencer à créer un nouvel itinéraire.",
             "help": "Cliquez sur la carte pour ajouter un nouveau point d'ancrage, ou faites glisser ceux existants pour changer l'itinéraire.",
             "activities": {
@@ -507,6 +509,9 @@
         "osm_extensions": "Données d'OpenStreetMap",
         "show_all_information": "Afficher toutes les informations",
         "file_info": "Informations du fichier",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "custom_extensions": "Extensions personnalisées",
         "total_distance": "Distance totale",
         "uphill_distance": "Distance en montée",
         "downhill_distance": "Distance en descente",

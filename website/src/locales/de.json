@@ -139,6 +139,8 @@
                 "tooltip": "Kehre mit derselben Route zum Startpunkt zurück"
             },
             "start_loop_here": "Schleife hier starten",
+            "show_info": "Info anzeigen",
+            "anchor_info": "Info zum Trackpunkt",
             "help_no_file": "Wähle eine Strecke aus, um das Routing-Tool zu verwenden, oder klicke auf die Karte, um eine neue Route zu erstellen.",
             "help": "Klicke auf die Karte, um einen neuen Punkt zu setzen oder ziehe existierende, um die Route zu ändern",
             "activities": {
@@ -507,6 +509,9 @@
         "osm_extensions": "OpenStreetMap",
         "show_all_information": "Alle Informationen anzeigen",
         "file_info": "Dateiinformationen",
+        "latitude": "Breitengrad",
+        "longitude": "Längengrad",
+        "custom_extensions": "Eigene Erweiterungen",
         "total_distance": "Gesamtdistanz",
         "uphill_distance": "Distanz bergauf",
         "downhill_distance": "Distanz bergab",

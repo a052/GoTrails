@@ -139,6 +139,8 @@
                 "tooltip": "按原路返回起点"
             },
             "start_loop_here": "在此开始循环",
+            "show_info": "显示信息",
+            "anchor_info": "轨迹点信息",
             "help_no_file": "选择一条轨迹进行编辑，或在地图上单击以创建新路线。",
             "help": "点击地图以添加新锚点，或拖拽现有锚点以改变路线。",
             "activities": {
@@ -507,6 +509,9 @@
         "osm_extensions": "OpenStreetMap 数据",
         "show_all_information": "显示全部信息",
         "file_info": "文件信息",
+        "latitude": "纬度",
+        "longitude": "经度",
+        "custom_extensions": "自定义扩展",
         "total_distance": "总距离",
         "uphill_distance": "上坡距离",
         "downhill_distance": "下坡距离",

@@ -3,7 +3,7 @@
     import { Button } from '$lib/components/ui/button';
     import Shortcut from '$lib/components/Shortcut.svelte';
     import { canChangeStart } from './routing-controls';
-    import { CirclePlay, Trash2 } from '@lucide/svelte';
+    import { CirclePlay, Info, Trash2 } from '@lucide/svelte';
 
     import { i18n } from '$lib/i18n.svelte';
 
@@ -27,6 +27,14 @@
                     {i18n._('toolbar.routing.start_loop_here')}
                 </Button>
             {/if}
+            <Button
+                class="w-full px-2 py-1 h-6 justify-start"
+                variant="ghost"
+                onclick={() => element?.dispatchEvent(new CustomEvent('show-info'))}
+            >
+                <Info size="16" />
+                {i18n._('toolbar.routing.show_info')}
+            </Button>
             <Button
                 class="w-full px-2 py-1 h-6 justify-start"
                 variant="ghost"

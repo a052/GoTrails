@@ -30,6 +30,8 @@ import { MAX_ANCHOR_ZOOM, MIN_ANCHOR_ZOOM } from './simplify';
 
 const { streetViewSource } = settings;
 export const canChangeStart = safeWritable(false, 'canChangeStart');
+// The track point whose details AnchorInfoDialog shows, or null when the dialog is closed.
+export const trackpointInfo = safeWritable<TrackPoint | null>(null, 'trackpointInfo');
 
 type AnchorProperties = {
     trackIndex: number;
@@ -524,6 +526,25 @@ export class RoutingControls {
         });
     }
 
+    getShowTrackpointInfo(anchor: Anchor) {
+        return () => this.showTrackpointInfo(anchor);
+    }
+
+    showTrackpointInfo(anchor: Anchor) {
+        // Guarded indexed access rather than file.getSegment(): getSegment has no bounds check and
+        // throws if the segment was removed between opening the popup and clicking the button.
+        const point = get(this.file)?.file?.trk[anchor.properties.trackIndex]?.trkseg[
+            anchor.properties.segmentIndex
+        ]?.trkpt[anchor.properties.pointIndex];
+        if (!point) {
+            return;
+        }
+
+        trackpointInfo.set(point);
+        // Close the menu so it does not linger underneath the dialog.
+        this.popup.remove();
+    }
+
     async appendAnchor(e: maplibregl.MapMouseEvent) {
         // Add a new anchor to the end of the last segment
         if (get(streetViewEnabled) && get(streetViewSource) === 'google') {
@@ -888,9 +909,12 @@ export class RoutingControls {
         this.popupElement.addEventListener('delete', deleteThisAnchor); // Register the delete event for this anchor
         const startLoopAtThisAnchor = this.getStartLoopAtAnchor(anchor);
         this.popupElement.addEventListener('change-start', startLoopAtThisAnchor); // Register the start loop event for this anchor
+        const showTrackpointInfo = this.getShowTrackpointInfo(anchor);
+        this.popupElement.addEventListener('show-info', showTrackpointInfo); // Register the show info event for this anchor
         this.popup.once('close', () => {
             this.popupElement.removeEventListener('delete', deleteThisAnchor);
             this.popupElement.removeEventListener('change-start', startLoopAtThisAnchor);
+            this.popupElement.removeEventListener('show-info', showTrackpointInfo);
         });
     }
 

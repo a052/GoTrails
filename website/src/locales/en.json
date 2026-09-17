@@ -139,6 +139,8 @@
                 "tooltip": "Return to the starting point by the same route"
             },
             "start_loop_here": "Start loop here",
+            "show_info": "Show info",
+            "anchor_info": "Track point information",
             "help_no_file": "Select a trace to use the routing tool, or click on the map to start creating a new route.",
             "help": "Click on the map to add a new anchor point, or drag existing ones to change the route.",
             "activities": {
@@ -507,6 +509,9 @@
         "osm_extensions": "OpenStreetMap data",
         "show_all_information": "Show all information",
         "file_info": "File info",
+        "latitude": "Latitude",
+        "longitude": "Longitude",
+        "custom_extensions": "Custom extensions",
         "total_distance": "Total distance",
         "uphill_distance": "Uphill distance",
         "downhill_distance": "Downhill distance",

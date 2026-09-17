@@ -12,6 +12,7 @@
     import Reduce from '$lib/components/toolbar/tools/reduce/Reduce.svelte';
     import Ruler from '$lib/components/toolbar/tools/ruler/Ruler.svelte';
     import RoutingControlPopup from '$lib/components/toolbar/tools/routing/RoutingControlPopup.svelte';
+    import AnchorInfoDialog from '$lib/components/toolbar/tools/routing/AnchorInfoDialog.svelte';
     import * as maplibregl from 'maplibre-gl';
     import { settings } from '$lib/logic/settings';
 
@@ -81,3 +82,4 @@
 />
 
 <RoutingControlPopup bind:element={popupElement} />
+<AnchorInfoDialog />

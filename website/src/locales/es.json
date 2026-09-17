@@ -139,6 +139,8 @@
                 "tooltip": "Volver al punto de inicio por la misma ruta"
             },
             "start_loop_here": "Iniciar bucle aquí",
+            "show_info": "Mostrar información",
+            "anchor_info": "Información del punto",
             "help_no_file": "Seleccione una traza para utilizar la herramienta de enrutamiento o haga clic en el mapa para empezar a crear una nueva ruta.",
             "help": "Haga clic en el mapa para añadir un nuevo punto de anclaje o arrastre los existentes para cambiar la ruta.",
             "activities": {
@@ -507,6 +509,9 @@
         "osm_extensions": "Datos OpenStreetMap",
         "show_all_information": "Mostrar toda la información",
         "file_info": "Información del archivo",
+        "latitude": "Latitud",
+        "longitude": "Longitud",
+        "custom_extensions": "Extensiones personalizadas",
         "total_distance": "Distancia total",
         "uphill_distance": "Distancia en subida",
         "downhill_distance": "Distancia en bajada",
