@@ -28,7 +28,7 @@ import { map } from '$lib/components/map/map';
 import { ANCHOR_LAYER_KEY } from '$lib/components/map/style';
 import { MAX_ANCHOR_ZOOM, MIN_ANCHOR_ZOOM } from './simplify';
 
-const { streetViewSource } = settings;
+const { streetViewSource, routing } = settings;
 export const canChangeStart = safeWritable(false, 'canChangeStart');
 // The track point whose details AnchorInfoDialog shows, or null when the dialog is closed.
 export const trackpointInfo = safeWritable<TrackPoint | null>(null, 'trackpointInfo');
@@ -63,16 +63,22 @@ export class RoutingControls {
     appendAnchorBinded: (e: MapMouseEvent) => void = this.appendAnchor.bind(this);
     addIntermediateAnchorBinded: (e: MapMouseEvent) => void = this.addIntermediateAnchor.bind(this);
 
-    draggedAnchorIndex: number | null = null;
     lastDraggedAnchorEventTime: number = 0;
     draggingStartingPosition: maplibregl.Point = new maplibregl.Point(0, 0);
+    // The anchor the pointer went down on, kept as an object rather than as an index into
+    // `this.anchors`: that array is rebuilt whenever the file changes, so an index captured here can
+    // point at a different anchor — or at nothing — by the time the drag ends.
+    private _pressedAnchor: Anchor | null = null;
+    // Whether the pointer actually travelled between the last mousedown and its mouseup. A click or
+    // contextmenu that follows a drag must be ignored, but only then: gating on a time window instead
+    // used to swallow the menu of an anchor that was merely clicked right after a drag.
+    private _dragged = false;
+    private _cancelDragBinded: () => void = this.cancelDrag.bind(this);
     onMouseEnterBinded: () => void = this.onMouseEnter.bind(this);
     onMouseLeaveBinded: () => void = this.onMouseLeave.bind(this);
     onClickBinded: (e: MapLayerMouseEvent) => void = this.onClick.bind(this);
     onMouseDownBinded: (e: MapLayerMouseEvent) => void = this.onMouseDown.bind(this);
     onTouchStartBinded: (e: MapLayerTouchEvent) => void = this.onTouchStart.bind(this);
-    onMouseMoveBinded: (e: MapLayerMouseEvent | MapLayerTouchEvent) => void =
-        this.onMouseMove.bind(this);
     onMouseUpBinded: (e: MapLayerMouseEvent | MapLayerTouchEvent) => void =
         this.onMouseUp.bind(this);
 
@@ -235,11 +241,45 @@ export class RoutingControls {
         });
     }
 
+    // Rebuild an anchor from the layer feature that was clicked. The feature is the only trustworthy
+    // source of identity: `this.anchors` is rebuilt on every file change, while a feature queried
+    // from the map — or one captured by an already open popup — can be a few edits old.
+    resolveAnchor(feature: GeoJSON.Feature | undefined): Anchor | null {
+        const properties = feature?.properties as AnchorProperties | undefined;
+        if (!properties) {
+            return null;
+        }
+
+        const point = get(this.file)?.file?.trk[properties.trackIndex]?.trkseg[
+            properties.segmentIndex
+        ]?.trkpt[properties.pointIndex];
+        if (!point) {
+            // The track point was removed (or the file reloaded) since the layer was drawn.
+            return null;
+        }
+
+        return {
+            type: 'Feature',
+            geometry: {
+                type: 'Point',
+                coordinates: [point.getLongitude(), point.getLatitude()],
+            },
+            properties: {
+                ...properties,
+                // Prefer the zoom the feature was drawn at, so the geometry update below lands in the
+                // very source the marker came from.
+                minZoom: properties.minZoom ?? point._data.zoom ?? MIN_ANCHOR_ZOOM,
+            },
+        };
+    }
+
     remove() {
         const map_ = get(map);
         const layerEventManager = map.layerEventManager;
 
         this.active = false;
+
+        this.cancelDrag();
 
         map_?.off('style.load', this.updateControlsBinded);
         map_?.off('click', this.appendAnchorBinded);
@@ -289,8 +329,12 @@ export class RoutingControls {
             anchor.properties.trackIndex,
             anchor.properties.segmentIndex
         );
-        const initialAnchorCoordinates =
-            segment.trkpt[anchor.properties.pointIndex].getCoordinates();
+        const anchorPoint = segment?.trkpt[anchor.properties.pointIndex];
+        if (!anchorPoint) {
+            // The segment was edited between the popup/marker being built and this call.
+            return;
+        }
+        const initialAnchorCoordinates = anchorPoint.getCoordinates();
 
         const [previousAnchor, nextAnchor] = this.getNeighbouringAnchors(anchor);
 
@@ -314,11 +358,18 @@ export class RoutingControls {
             targetTrackpoints.push(segment.trkpt[nextAnchor.properties.pointIndex]);
         }
 
-        const success = await this.routeBetweenAnchors(anchors, targetTrackpoints);
-
-        if (!success && anchor.properties.anchorIndex != this.anchors.length) {
-            // Route failed, revert the anchor to the previous position
-            this.moveAnchorFeature(anchor.properties.anchorIndex, initialAnchorCoordinates);
+        try {
+            const success = await this.routeBetweenAnchors(anchors, targetTrackpoints);
+            if (!success) {
+                // Route failed, revert the marker to the previous position
+                this.moveAnchorFeature(anchor, initialAnchorCoordinates);
+            }
+        } catch (error) {
+            // The marker was moved to the pointer position while dragging; put it back, then let the
+            // caller's `.catch` report the failure. Swallowing it here would leave the map showing a
+            // position the file does not have.
+            this.moveAnchorFeature(anchor, initialAnchorCoordinates);
+            throw error;
         }
     }
 
@@ -422,8 +473,12 @@ export class RoutingControls {
     }
 
     async deleteAnchor(anchor: Anchor) {
-        // Remove the anchor and route between the neighbouring anchors if they exist
         this.popup.remove();
+
+        if (!this.resolveAnchor(anchor)) {
+            // The popup was left open across an edit that removed this point; nothing left to delete.
+            return;
+        }
 
         const [previousAnchor, nextAnchor] = this.getNeighbouringAnchors(anchor);
 
@@ -465,23 +520,68 @@ export class RoutingControls {
                 );
             });
         } else if (previousAnchor !== null && nextAnchor !== null) {
-            // Route between previousAnchor and nextAnchor
-            const file = get(this.file)?.file;
-            if (!file) {
+            // The two neighbours are track points differing by one index, so the point between them
+            // is the one being deleted, and removing it leaves the neighbours to connect directly.
+            // This is also what a re-route would produce here anyway — the segment is too short to
+            // follow anything but a straight line.
+            const neighboursAdjacent =
+                nextAnchor.properties.pointIndex - previousAnchor.properties.pointIndex === 2;
+
+            if (neighboursAdjacent || !get(routing)) {
+                // Connect the neighbours directly. Re-routing here is not an option: the router
+                // would return the point that is being deleted (it lies on the road), so "delete"
+                // would re-create it and the point could never be removed.
+                this.replaceSpanWithConnection(anchor, previousAnchor, nextAnchor);
+            } else {
+                const file = get(this.file)?.file;
+                if (!file) {
+                    return;
+                }
+                const segment = file.getSegment(
+                    anchor.properties.trackIndex,
+                    anchor.properties.segmentIndex
+                );
+                await this.routeBetweenAnchors(
+                    [previousAnchor, nextAnchor],
+                    [
+                        segment.trkpt[previousAnchor.properties.pointIndex],
+                        segment.trkpt[nextAnchor.properties.pointIndex],
+                    ]
+                );
+            }
+        }
+    }
+
+    // Drop every track point between two neighbouring anchors, so that the two are left adjacent.
+    // The points are removed rather than re-supplied to `replaceTrackPoints`: a point read from the
+    // draft cannot be written back into it — the draft is finalized (and its proxy revoked) when the
+    // producer returns, and a patch value holding a revoked proxy cannot be persisted, which fails
+    // the whole mutation.
+    private replaceSpanWithConnection(anchor: Anchor, previousAnchor: Anchor, nextAnchor: Anchor) {
+        const trackIndex = anchor.properties.trackIndex;
+        const segmentIndex = anchor.properties.segmentIndex;
+        const previousPointIndex = previousAnchor.properties.pointIndex;
+        const nextPointIndex = nextAnchor.properties.pointIndex;
+        if (nextPointIndex - previousPointIndex < 2) {
+            // The anchors are not distinct, adjacent points: nothing lies between them.
+            return;
+        }
+
+        fileActionManager.applyToFile(this.fileId, (file) => {
+            const segment = file.trk[trackIndex]?.trkseg[segmentIndex];
+            if (!segment || segment.trkpt.length <= nextPointIndex) {
+                // The segment changed since the anchors were resolved; leave it untouched rather
+                // than splicing at a stale index.
                 return;
             }
-            const segment = file.getSegment(
-                anchor.properties.trackIndex,
-                anchor.properties.segmentIndex
+            file.replaceTrackPoints(
+                trackIndex,
+                segmentIndex,
+                previousPointIndex + 1,
+                nextPointIndex - 1,
+                []
             );
-            this.routeBetweenAnchors(
-                [previousAnchor, nextAnchor],
-                [
-                    segment.trkpt[previousAnchor.properties.pointIndex],
-                    segment.trkpt[nextAnchor.properties.pointIndex],
-                ]
-            );
-        }
+        });
     }
 
     getStartLoopAtAnchor(anchor: Anchor) {
@@ -550,11 +650,9 @@ export class RoutingControls {
         if (get(streetViewEnabled) && get(streetViewSource) === 'google') {
             return;
         }
-        if (
-            this.draggedAnchorIndex !== null ||
-            Date.now() - this.lastDraggedAnchorEventTime < 100
-        ) {
-            // Exit if anchor is being dragged
+        if (this._pressedAnchor !== null || Date.now() - this.lastDraggedAnchorEventTime < 100) {
+            // Exit while an anchor is being dragged, or right after one was dropped: the map click
+            // that ends a drag must not also append a new anchor at the release position.
             return;
         }
         if (
@@ -732,6 +830,13 @@ export class RoutingControls {
             return false;
         }
 
+        // The producer below runs after this method returns, by which time the draft has been
+        // finalized and its proxies revoked. A point read from the draft would then be a revoked
+        // proxy, and writing one into the file fails the whole mutation, so clone the points here
+        // while they are still readable.
+        const firstTargetPoint = targetTrackPoints[0].clone();
+        const lastTargetPoint = targetTrackPoints[anchors.length - 1].clone();
+
         const segment = fileWithStats.file.getSegment(
             anchors[0].properties.trackIndex,
             anchors[0].properties.segmentIndex
@@ -740,13 +845,13 @@ export class RoutingControls {
         if (
             anchors[0].properties.pointIndex !== 0 &&
             (anchors[0].properties.pointIndex !== segment.trkpt.length - 1 ||
-                distance(targetTrackPoints[0].getCoordinates(), response[0].getCoordinates()) > 1)
+                distance(firstTargetPoint.getCoordinates(), response[0].getCoordinates()) > 1)
         ) {
-            response.splice(0, 0, targetTrackPoints[0].clone()); // Keep the current first anchor
+            response.splice(0, 0, firstTargetPoint); // Keep the current first anchor
         }
 
         if (anchors[anchors.length - 1].properties.pointIndex !== segment.trkpt.length - 1) {
-            response.push(targetTrackPoints[anchors.length - 1].clone()); // Keep the current last anchor
+            response.push(lastTargetPoint); // Keep the current last anchor
         }
 
         const anchorTrackPoints = [response[0], response[response.length - 1]];
@@ -859,6 +964,11 @@ export class RoutingControls {
     }
 
     onMouseLeave() {
+        // A drag whose release is missed (pointer released outside the canvas, window blur) would
+        // otherwise keep `dragPan` disabled and the whole layer unresponsive.
+        if (this._pressedAnchor !== null) {
+            this.cancelDrag();
+        }
         if (this.temporaryAnchor !== null) {
             return;
         }
@@ -868,15 +978,16 @@ export class RoutingControls {
     onClick(e: MapLayerMouseEvent) {
         e.preventDefault();
 
-        if (
-            this.draggedAnchorIndex !== null ||
-            Date.now() - this.lastDraggedAnchorEventTime < 100
-        ) {
-            // Exit if anchor is being dragged
+        if (this._dragged || Date.now() - this.lastDraggedAnchorEventTime < 100) {
+            // Exit if the anchor was just dragged: this click (or contextmenu) is the tail of that
+            // gesture, not a fresh request for the popup.
             return;
         }
 
-        const anchor = this.anchors[e.features![0].properties.anchorIndex];
+        const anchor = this.resolveAnchor(e.features![0]);
+        if (!anchor) {
+            return;
+        }
         if (e.originalEvent.shiftKey) {
             this.deleteAnchor(anchor);
             return;
@@ -925,13 +1036,19 @@ export class RoutingControls {
         }
 
         e.preventDefault();
+        // Block the map pan for the duration of the gesture, otherwise it moves with the anchor.
         _map.dragPan.disable();
 
-        this.draggedAnchorIndex = e.features![0].properties.anchorIndex;
-        this.draggingStartingPosition = e.point;
+        this.startDrag(e.features![0], e.point);
+        if (this._pressedAnchor === null) {
+            // The feature has no resolvable track point anymore (stale layer data), ignore the press
+            // rather than leaving the state machine half-armed.
+            _map.dragPan.enable();
+            return;
+        }
 
-        _map.on('mousemove', this.onMouseMoveBinded);
         _map.once('mouseup', this.onMouseUpBinded);
+        this.addDragListeners();
     }
 
     onTouchStart(e: MapLayerTouchEvent) {
@@ -943,29 +1060,112 @@ export class RoutingControls {
             return;
         }
 
-        this.draggedAnchorIndex = e.features![0].properties.anchorIndex;
-        this.draggingStartingPosition = e.point;
-
         e.preventDefault();
         _map.dragPan.disable();
 
-        _map.on('touchmove', this.onMouseMoveBinded);
-        _map.once('touchend', this.onMouseUpBinded);
-    }
-
-    onMouseMove(e: MapLayerMouseEvent | MapLayerTouchEvent) {
-        if (this.draggedAnchorIndex === null || e.point.equals(this.draggingStartingPosition)) {
+        this.startDrag(e.features![0], e.point);
+        if (this._pressedAnchor === null) {
+            _map.dragPan.enable();
             return;
         }
 
+        _map.once('touchend', this.onMouseUpBinded);
+        this.addDragListeners();
+    }
+
+    // Record the pressed anchor. Dragging does not change its `pointIndex` while the pointer is down
+    // (the file is only written on release), so it keeps identifying the right track point until
+    // `onMouseUp`. The temporary hover marker is identified by its `anchorIndex`, which is one past
+    // the last real anchor.
+    private startDrag(feature: GeoJSON.Feature | undefined, point: maplibregl.Point) {
+        const anchor =
+            (feature?.properties as AnchorProperties | undefined)?.anchorIndex ===
+            this.anchors.length
+                ? this.temporaryAnchor
+                : this.resolveAnchor(feature);
+        if (!anchor) {
+            return;
+        }
+        this._pressedAnchor = anchor;
+        this._dragged = false;
+        this.draggingStartingPosition = point;
+    }
+
+    // Grab the pointer for the whole gesture. These are DOM listeners on the map container rather
+    // than map events: `MapLayerEventManager._handleMouseMove` deliberately returns early while a
+    // button is held (`originalEvent.buttons > 0`, so that hovering does no hit-testing during a
+    // pan), which means a map `mousemove` never fires between mousedown and mouseup — the drag would
+    // receive no movement at all. The container also still gets the event when the pointer leaves the
+    // canvas, and the window-level listeners catch a release that happens outside it.
+    private addDragListeners() {
+        const container = get(map)?.getCanvasContainer();
+        container?.addEventListener('mousemove', this.onDragMoveBinded);
+        container?.addEventListener('touchmove', this.onDragMoveBinded, { passive: false });
+        window.addEventListener('mouseup', this._cancelDragBinded);
+        window.addEventListener('touchend', this._cancelDragBinded);
+        window.addEventListener('touchcancel', this._cancelDragBinded);
+    }
+
+    private removeDragListeners() {
+        const container = get(map)?.getCanvasContainer();
+        container?.removeEventListener('mousemove', this.onDragMoveBinded);
+        container?.removeEventListener('touchmove', this.onDragMoveBinded);
+        window.removeEventListener('mouseup', this._cancelDragBinded);
+        window.removeEventListener('touchend', this._cancelDragBinded);
+        window.removeEventListener('touchcancel', this._cancelDragBinded);
+    }
+
+    // End whatever drag is in flight without touching the file. Safe to call at any time.
+    cancelDrag() {
+        this.removeDragListeners();
+
+        get(map)?.dragPan.enable();
+
+        if (this._pressedAnchor !== null) {
+            mapCursor.notify(MapCursorState.ANCHOR_DRAGGING, false);
+        }
+        this._pressedAnchor = null;
+        this._dragged = false;
+    }
+
+    private onDragMoveBinded = (e: MouseEvent | TouchEvent) => {
+        const _map = get(map);
+        if (!_map) {
+            return;
+        }
+        // A mouse event whose button is no longer down means the release was missed (window blur, or
+        // a release outside both the container and the window listener's reach) — end the drag.
+        if (e.type === 'mousemove' && (e as MouseEvent).buttons === 0) {
+            this.cancelDrag();
+            return;
+        }
+
+        const touch = 'touches' in e ? e.touches[0] : undefined;
+        const point = touch
+            ? new maplibregl.Point(touch.clientX, touch.clientY)
+            : new maplibregl.Point((e as MouseEvent).clientX, (e as MouseEvent).clientY);
+        const rect = _map.getCanvas().getBoundingClientRect();
+        point.x -= rect.left;
+        point.y -= rect.top;
+
+        this.dragTo(point, _map.unproject(point));
+    };
+
+    private dragTo(point: maplibregl.Point, lngLat: { lat: number; lng: number }) {
+        if (this._pressedAnchor === null) {
+            return;
+        }
+        if (point.equals(this.draggingStartingPosition)) {
+            return;
+        }
+
+        this._dragged = true;
         mapCursor.notify(MapCursorState.ANCHOR_DRAGGING, true);
 
-        this.moveAnchorFeature(this.draggedAnchorIndex, {
-            lat: e.lngLat.lat,
-            lon: e.lngLat.lng,
+        this.moveAnchorFeature(this._pressedAnchor, {
+            lat: lngLat.lat,
+            lon: lngLat.lng,
         });
-
-        this.lastDraggedAnchorEventTime = Date.now();
     }
 
     onMouseUp(e: MapLayerMouseEvent | MapLayerTouchEvent) {
@@ -976,35 +1176,33 @@ export class RoutingControls {
             return;
         }
 
+        const pressedAnchor = this._pressedAnchor;
+        const dragged = this._dragged;
+
+        // Free the state machine before anything asynchronous runs: `moveAnchor` awaits the routing
+        // request, and while it is pending every click and contextmenu on the layer is ignored.
+        // Leaving the flag set on an early return is what used to make anchors unresponsive.
+        this.removeDragListeners();
+        this._pressedAnchor = null;
+        this._dragged = false;
+        this.draggingStartingPosition = e.point;
+
         _map.dragPan.enable();
 
-        _map.off('mousemove', this.onMouseMoveBinded);
-        _map.off('touchmove', this.onMouseMoveBinded);
-
-        if (this.draggedAnchorIndex === null) {
-            return;
-        }
-        if (e.point.equals(this.draggingStartingPosition)) {
-            this.draggedAnchorIndex = null;
+        if (pressedAnchor === null || !dragged) {
             return;
         }
 
-        if (this.draggedAnchorIndex === this.anchors.length) {
-            if (this.temporaryAnchor) {
-                this.moveAnchor(this.temporaryAnchor, {
-                    lat: e.lngLat.lat,
-                    lon: e.lngLat.lng,
-                });
-            }
-        } else {
-            this.moveAnchor(this.anchors[this.draggedAnchorIndex], {
-                lat: e.lngLat.lat,
-                lon: e.lngLat.lng,
-            });
-        }
-
-        this.draggedAnchorIndex = null;
         this.lastDraggedAnchorEventTime = Date.now();
+        this.moveAnchor(pressedAnchor, {
+            lat: e.lngLat.lat,
+            lon: e.lngLat.lng,
+        }).catch((error) => {
+            // `routeBetweenAnchors` already reported a routing failure through its own toast; this
+            // only catches the unexpected (e.g. the segment disappearing mid-drag).
+            console.error('Failed to move the anchor point:', error);
+            toast.error(i18n._((error as Error).message, (error as Error).message));
+        });
     }
 
     showTemporaryAnchor(e: MapLayerMouseEvent) {
@@ -1013,7 +1211,7 @@ export class RoutingControls {
             return;
         }
 
-        if (this.draggedAnchorIndex !== null) {
+        if (this._pressedAnchor !== null) {
             // Do not not change the source point if it is already being dragged
             return;
         }
@@ -1065,7 +1263,7 @@ export class RoutingControls {
             return;
         }
 
-        if (this.draggedAnchorIndex !== null) {
+        if (this._pressedAnchor !== null) {
             // Do not hide if it is being dragged, and stop listening for mousemove
             map_.off('mousemove', this.updateTemporaryAnchorBinded);
             return;
@@ -1083,7 +1281,7 @@ export class RoutingControls {
         }
 
         // Update the position of the temporary anchor
-        this.moveAnchorFeature(this.anchors.length, {
+        this.moveAnchorFeature(this.temporaryAnchor, {
             lat: e.lngLat.lat,
             lon: e.lngLat.lng,
         });
@@ -1122,17 +1320,15 @@ export class RoutingControls {
         return false;
     }
 
-    moveAnchorFeature(anchorIndex: number, coordinates: Coordinates) {
-        const anchor =
-            anchorIndex === this.anchors.length ? this.temporaryAnchor : this.anchors[anchorIndex];
+    moveAnchorFeature(anchor: Anchor, coordinates: Coordinates) {
         const source = get(map)?.getSource(
-            this.layers.get(anchor?.properties.minZoom ?? MIN_ANCHOR_ZOOM)?.id ?? ''
+            this.layers.get(anchor.properties.minZoom ?? MIN_ANCHOR_ZOOM)?.id ?? ''
         ) as GeoJSONSource | undefined;
         if (source) {
             source.updateData({
                 update: [
                     {
-                        id: anchorIndex,
+                        id: anchor.properties.anchorIndex,
                         newGeometry: {
                             type: 'Point',
                             coordinates: [coordinates.lon, coordinates.lat],

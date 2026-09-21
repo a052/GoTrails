@@ -193,14 +193,19 @@ export class GPXLayer {
 
         this.loadIcons();
 
+        // Build the features outside the guard below: the try/catch exists for the MapLibre calls,
+        // which have no reliable readiness check. Swallowing a failure raised while *building* the
+        // GeoJSON would silently keep the previous geometry on the map instead.
+        const geojson = this.getGeoJSON();
+
         try {
             const source = _map.getSource(this.fileId) as GeoJSONSource | undefined;
             if (source) {
-                source.setData(this.getGeoJSON());
+                source.setData(geojson);
             } else {
                 _map.addSource(this.fileId, {
                     type: 'geojson',
-                    data: this.getGeoJSON(),
+                    data: geojson,
                 });
             }
 
@@ -721,9 +726,18 @@ export class GPXLayer {
 
         const data = file.toGeoJSON();
 
-        let trackIndex = 0,
-            segmentIndex = 0;
-        for (const feature of data.features) {
+        // Match each feature to the segment it was built from through `forEachSegment` rather than by
+        // advancing a counter over the features: the two lists are only aligned as long as every
+        // segment produces exactly one feature, and a counter that runs off the end of `file.trk`
+        // would throw here — which used to leave the map showing the previous geometry.
+        const features: GeoJSON.Feature[] = [];
+        let index = 0;
+        file.forEachSegment((segment, trackIndex, segmentIndex) => {
+            const feature = data.features[index++];
+            if (!feature) {
+                // More segments than features: nothing to style for this one.
+                return;
+            }
             if (!feature.properties) {
                 feature.properties = {};
             }
@@ -748,14 +762,13 @@ export class GPXLayer {
             feature.properties.trackIndex = trackIndex;
             feature.properties.segmentIndex = segmentIndex;
             feature.properties.trackSegmentId = `${trackIndex}-${segmentIndex}`;
+            features.push(feature);
+        });
 
-            segmentIndex++;
-            if (segmentIndex >= file.trk[trackIndex].trkseg.length) {
-                segmentIndex = 0;
-                trackIndex++;
-            }
-        }
-        return data;
+        return {
+            type: 'FeatureCollection',
+            features,
+        };
     }
 
     getWaypointsGeoJSON(): GeoJSON.FeatureCollection {
