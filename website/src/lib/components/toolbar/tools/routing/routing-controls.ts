@@ -842,16 +842,31 @@ export class RoutingControls {
             anchors[0].properties.segmentIndex
         );
 
-        if (
-            anchors[0].properties.pointIndex !== 0 &&
-            (anchors[0].properties.pointIndex !== segment.trkpt.length - 1 ||
-                distance(firstTargetPoint.getCoordinates(), response[0].getCoordinates()) > 1)
-        ) {
-            response.splice(0, 0, firstTargetPoint); // Keep the current first anchor
+        // Preserve the span's boundary anchors. With routing OFF, getIntermediatePoints already
+        // emits response[0]/response[last] exactly at the anchor coordinates, so splicing the clones
+        // in would stack a second coincident point on each boundary — a duplicate that becomes
+        // draggable at zoom > 17 and breaks the drag gesture. Only insert the clone when the routed
+        // geometry does not already reach the anchor (> 1 m); otherwise overwrite in place so the
+        // boundary keeps its original point data without creating a duplicate.
+        if (anchors[0].properties.pointIndex !== 0) {
+            if (distance(firstTargetPoint.getCoordinates(), response[0].getCoordinates()) > 1) {
+                response.splice(0, 0, firstTargetPoint); // Keep the current first anchor
+            } else {
+                response[0] = firstTargetPoint;
+            }
         }
 
         if (anchors[anchors.length - 1].properties.pointIndex !== segment.trkpt.length - 1) {
-            response.push(lastTargetPoint); // Keep the current last anchor
+            if (
+                distance(
+                    lastTargetPoint.getCoordinates(),
+                    response[response.length - 1].getCoordinates()
+                ) > 1
+            ) {
+                response.push(lastTargetPoint); // Keep the current last anchor
+            } else {
+                response[response.length - 1] = lastTargetPoint;
+            }
         }
 
         const anchorTrackPoints = [response[0], response[response.length - 1]];
@@ -1032,6 +1047,14 @@ export class RoutingControls {
     onMouseDown(e: MapLayerMouseEvent) {
         const _map = get(map);
         if (!_map) {
+            return;
+        }
+
+        // A single physical press is delivered once per overlapping anchor layer, because
+        // MapLayerEventManager dispatches `mousedown` to every layer that has a feature under the
+        // pointer. Arm the gesture only once so a second delivery cannot overwrite the pressed
+        // anchor or double-register the drag/mouseup listeners.
+        if (this._pressedAnchor !== null) {
             return;
         }
 
