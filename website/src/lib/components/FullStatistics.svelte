@@ -20,7 +20,9 @@
 
     // Time- and speed-derived metrics are only meaningful when the range carries timestamps.
     let hasTime = $derived(statistics.time.total > 0);
-    let movingHours = $derived(statistics.time.moving / 3600);
+    // VAM (vertical ascent metre) divides elevation gain by the time spent *ascending*, not the
+    // whole moving time — dividing by moving time would dilute the climb rate on up-and-down routes.
+    let ascentHours = $derived(statistics.time.up / 3600);
 
     let samplingRateText = $derived(
         $fileInfo.samplingRate !== undefined
@@ -94,7 +96,7 @@
                 },
                 {
                     label: i18n._('quantities.vertical_ascent_metric'),
-                    value: movingHours > 0 ? statistics.elevation.gain / movingHours : undefined,
+                    value: ascentHours > 0 ? statistics.elevation.gain / ascentHours : undefined,
                     type: 'vam',
                 },
             ],

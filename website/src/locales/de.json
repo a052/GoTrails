@@ -536,7 +536,7 @@
         "point_count": "Anzahl Streckenpunkte",
         "waypoint_count": "Anzahl Wegpunkte",
         "creator": "Gerät / Ersteller",
-        "sampling_rate": "Abtastrate"
+        "sampling_rate": "Abtastrate (gesamte Datei)"
     },
     "units": {
         "meters": "m",

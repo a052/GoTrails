@@ -536,7 +536,7 @@
         "point_count": "Track point count",
         "waypoint_count": "Waypoint count",
         "creator": "Device / Creator",
-        "sampling_rate": "Sampling rate"
+        "sampling_rate": "Sampling rate (whole file)"
     },
     "units": {
         "meters": "m",

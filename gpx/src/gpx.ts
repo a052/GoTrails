@@ -50,7 +50,7 @@ const SLOPE_SEGMENT_EPSILON = 8;
 // uphill/downhill/flat. Classification uses the smoothed per-point grade (slope.at) rather than the
 // raw inter-point grade to avoid GPS/DEM noise, following the grade-threshold approach used by
 // mainstream trail-analysis tools.
-const FLAT_SLOPE_THRESHOLD = 1;
+const FLAT_SLOPE_THRESHOLD = 3;
 
 // An abstract class that groups functions that need to be computed recursively in the GPX file hierarchy
 export abstract class GPXTreeElement<T extends GPXTreeElement<any>> {
@@ -1129,6 +1129,11 @@ export class TrackSegment extends GPXTreeLeaf {
         const threshold = Math.max(0, elevationOptions.gainThresholdMeters);
         let gain = 0;
         let loss = 0;
+        // Ascending moving time (denominator for VAM): the moving time spent on legs whose smoothed
+        // elevation is rising. Tied to the same smoothed profile the gain numerator is accumulated
+        // over, and gated by the same speed check as `time.moving`, so `time.up` is always a subset
+        // of `time.moving` and VAM = gain / ascent-time describes the very legs that produced the gain.
+        let ascentTime = 0;
         // Max/min use the raw per-point elevation (matching the profile chart and coordinate
         // readout), not the smoothed profile that gain/loss are accumulated over.
         let max = -Infinity;
@@ -1147,12 +1152,28 @@ export class TrackSegment extends GPXTreeLeaf {
                     loss += -d;
                     reference = smoothed[i];
                 }
+                if (i > 0 && smoothed[i] > smoothed[i - 1]) {
+                    const previousTime = points[i - 1].time;
+                    const currentTime = points[i].time;
+                    if (previousTime !== undefined && currentTime !== undefined) {
+                        const legTime = (currentTime.getTime() - previousTime.getTime()) / 1000;
+                        const legDistance =
+                            statistics.local.data[i].distance.total -
+                            statistics.local.data[i - 1].distance.total;
+                        const legSpeed = legTime > 0 ? legDistance / (legTime / 3600) : 0;
+                        if (legSpeed >= 0.5 && legSpeed <= 1500) {
+                            ascentTime += legTime;
+                        }
+                    }
+                }
                 statistics.local.data[i].elevation.gain = gain;
                 statistics.local.data[i].elevation.loss = loss;
+                statistics.local.data[i].time.up = ascentTime;
             }
         }
         statistics.global.elevation.gain = gain;
         statistics.global.elevation.loss = loss;
+        statistics.global.time.up = ascentTime;
         statistics.global.elevation.max = max;
         statistics.global.elevation.min = min;
         statistics.global.elevation.start = n > 0 ? (points[0].ele ?? NaN) : NaN;

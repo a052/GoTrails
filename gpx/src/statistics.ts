@@ -14,6 +14,7 @@ export class GPXGlobalStatistics {
         start: Date | undefined;
         end: Date | undefined;
         moving: number;
+        up: number;
         total: number;
     };
     speed: {
@@ -68,6 +69,7 @@ export class GPXGlobalStatistics {
             start: undefined,
             end: undefined,
             moving: 0,
+            up: 0,
             total: 0,
         };
         this.speed = {
@@ -136,6 +138,7 @@ export class GPXGlobalStatistics {
 
         this.time.total += other.time.total;
         this.time.moving += other.time.moving;
+        this.time.up += other.time.up;
 
         this.speed.moving =
             this.time.moving > 0 ? this.distance.moving / (this.time.moving / 3600) : 0;
@@ -204,6 +207,7 @@ export class TrackPointLocalStatistics {
     };
     time: {
         moving: number;
+        up: number;
         total: number;
     };
     speed: number;
@@ -227,6 +231,7 @@ export class TrackPointLocalStatistics {
         };
         this.time = {
             moving: 0,
+            up: 0,
             total: 0,
         };
         this.speed = 0;
@@ -303,6 +308,7 @@ export class GPXStatistics {
         statistics.time.total = this.local.data[end].time.total - this.local.data[start].time.total;
         statistics.time.moving =
             this.local.data[end].time.moving - this.local.data[start].time.moving;
+        statistics.time.up = this.local.data[end].time.up - this.local.data[start].time.up;
 
         statistics.speed.moving =
             statistics.time.moving > 0
@@ -443,6 +449,7 @@ export class GPXStatisticsGroup {
             },
             time: {
                 moving: statistics.local.data[index].time.moving + cumulative.time.moving,
+                up: statistics.local.data[index].time.up + cumulative.time.up,
                 total: statistics.local.data[index].time.total + cumulative.time.total,
             },
             speed: statistics.local.data[index].speed,

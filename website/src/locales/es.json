@@ -536,7 +536,7 @@
         "point_count": "Número de puntos",
         "waypoint_count": "Número de puntos de ruta",
         "creator": "Dispositivo / Creador",
-        "sampling_rate": "Frecuencia de muestreo"
+        "sampling_rate": "Frecuencia de muestreo (archivo completo)"
     },
     "units": {
         "meters": "m",

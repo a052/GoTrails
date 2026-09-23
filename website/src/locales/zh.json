@@ -536,7 +536,7 @@
         "point_count": "轨迹点数量",
         "waypoint_count": "标注点数量",
         "creator": "设备 / 创建者",
-        "sampling_rate": "采样率"
+        "sampling_rate": "采样率（整个文件）"
     },
     "units": {
         "meters": "m",

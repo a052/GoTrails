@@ -536,7 +536,7 @@
         "point_count": "Nombre de points de piste",
         "waypoint_count": "Nombre de points de passage",
         "creator": "Appareil / Créateur",
-        "sampling_rate": "Fréquence d'échantillonnage"
+        "sampling_rate": "Fréquence d'échantillonnage (fichier entier)"
     },
     "units": {
         "meters": "m",
