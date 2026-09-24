@@ -1,13 +1,26 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="website/static/logo-dark.svg">
-  <img alt="Logo of gpx.studio." src="website/static/logo.svg">
+  <img alt="Logo of GoTrails." src="website/static/logo.svg">
 </picture>
 
-[**gpx.studio**](https://gpx.studio) is an online tool for creating and editing GPX files.
+[**GoTrails**](https://gotrails.vercel.app) is a free online tool to view, edit, and create GPX and KML tracks: multi-engine routing, accurate elevation profiles, 3D MapLibre maps, POI layers, and rich statistics. It is a feature-extended fork of the legendary [gpx.studio](https://github.com/gpxstudio/gpx.studio).
 
-![gpx.studio screenshot](website/src/lib/assets/img/docs/getting-started/interface.webp)
+![GoTrails screenshot](website/src/lib/assets/img/docs/getting-started/interface.webp)
 
 This repository contains the source code of the website.
+
+## What GoTrails adds
+
+Compared to upstream gpx.studio, this fork adds:
+
+- **Routing** — multiple engines (default OSRM, GraphHopper official/self-hosted, BRouter) with per-activity profiles and private-road handling; fixes for routing-off anchor dragging at high zoom and for anchor-point deletion; a "Show info" action on anchor popups.
+- **Elevation** — user-selectable DEM/elevation source (including Mapterhorn terrain); more accurate cumulative gain/loss; unified elevation resampling so drawn and routed tracks match the map terrain; improved flat-distance and VAM metrics.
+- **Elevation profile & statistics** — a reworked interactive elevation chart and a "Show all information" full-statistics panel.
+- **Map** — MapLibre GL JS v6 with 2D/3D/globe terrain; an expanded basemap/overlay catalog; a live cursor lat/lng and elevation readout; camera/viewport persistence across reloads.
+- **Points of interest** — Overpass POI layers with categorized queries and tile caching.
+- **Waypoints & tools** — waypoint editing improvements and a clear "waypoint" vs "point of interest" terminology split.
+- **File formats** — KML import/export alongside GPX (KML `desc` ↔ GPX `cmt` mapping, single-track naming).
+- **UX & quality** — a Clean mode, keyboard shortcuts, and many UI refinements; security hardening (untrusted-value sanitization); type-safety and lint cleanup; and several state-management/immer bug fixes.
 
 ## Contributing
 
@@ -41,6 +54,8 @@ npm run dev
 ```
 
 ## Credits
+
+GoTrails is based on the open-source [gpx.studio](https://github.com/gpxstudio/gpx.studio) project.
 
 This project has been made possible thanks to the following open source projects:
 

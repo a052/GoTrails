@@ -75,7 +75,7 @@
             <a href={getURLForLanguage(i18n.lang, '/app')} aria-label="Link to the web app.">
                 <enhanced:img
                     src="/src/lib/assets/img/docs/getting-started/interface.webp"
-                    alt="The gpx.studio interface."
+                    alt="The GoTrails interface."
                     class="rounded-xl shadow-2xl"
                 /></a
             >
@@ -184,7 +184,7 @@
                     {i18n._('homepage.foss_description')}
                     <Button
                         variant="link"
-                        href="https://github.com/a052/gpx.studio"
+                        href="https://github.com/a052/GoTrails"
                         target="_blank"
                         class="p-0 has-[>svg]:p-0 h-fit"
                     >

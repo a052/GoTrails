@@ -158,10 +158,10 @@ export class GPXFile extends GPXTreeNode<Track> {
             this.attributes = gpx.attributes;
             this.metadata = gpx.metadata ?? {};
             this.metadata.author = {
-                name: 'gpx.studio',
+                name: 'GoTrails',
                 link: {
                     attributes: {
-                        href: 'https://gpx.studio',
+                        href: 'https://gotrails.vercel.app',
                     },
                 },
             };

@@ -134,7 +134,7 @@ export function buildGPX(file: GPXFile, exclude: string[]): string {
     });
 
     if (!gpx.attributes) gpx.attributes = {};
-    gpx.attributes['creator'] = gpx.attributes['creator'] ?? 'https://gpx.studio';
+    gpx.attributes['creator'] = gpx.attributes['creator'] ?? 'https://gotrails.vercel.app';
     gpx.attributes['version'] = '1.1';
     gpx.attributes['xmlns'] = 'http://www.topografix.com/GPX/1/1';
     gpx.attributes['xmlns:xsi'] = 'http://www.w3.org/2001/XMLSchema-instance';

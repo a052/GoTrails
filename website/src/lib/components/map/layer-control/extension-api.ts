@@ -23,8 +23,8 @@ export class ExtensionAPI {
     );
 
     init() {
-        if (browser && !Object.hasOwn(window, 'gpxstudio')) {
-            Object.defineProperty(window, 'gpxstudio', {
+        if (browser && !Object.hasOwn(window, 'gotrails')) {
+            Object.defineProperty(window, 'gotrails', {
                 value: this,
             });
             addEventListener('beforeunload', () => {

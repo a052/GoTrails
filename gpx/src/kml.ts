@@ -361,7 +361,7 @@ function dispatchPlacemark(pm: XmlNode, styles: StyleTable, result: GPXFileType)
     // KML descriptions are commonly HTML (photos, links, notes), and they are routed to GPX *cmt*
     // rather than desc: the OSM iD editor (and anything built on togeojson) renders the GPX desc
     // as the feature's plain-text map label (label = desc || name), so HTML in desc leaks as raw
-    // tag soup there, while cmt is parsed but never used as a label. gpx.studio's waypoint popup
+    // tag soup there, while cmt is parsed but never used as a label. GoTrails's waypoint popup
     // renders cmt exactly like desc (sanitized HTML), so the content stays fully visible here.
     // buildKML mirrors this by emitting cmt (when desc is empty) back as the KML description.
     const desc = str(pm.description);
@@ -620,7 +620,7 @@ export function buildKML(file: GPXFile, exclude: string[] = []): string {
     }
     if (channels.length > 0) {
         doc.Schema = {
-            attributes: { id: 'gpxstudio', name: 'gpxstudio' },
+            attributes: { id: 'gotrails', name: 'gotrails' },
             'gx:SimpleArrayField': channels.map((ch) => ({
                 attributes: { name: ch, type: ch === 'temperature' ? 'float' : 'int' },
                 displayName: channelDisplayName(ch),
@@ -796,7 +796,7 @@ function buildGxTrack(seg: { trkpt: TrackPointType[] }, channels: Channel[]): Xm
     }
     if (arrays.length > 0) {
         track.ExtendedData = {
-            SchemaData: { attributes: { schemaUrl: '#gpxstudio' }, 'gx:SimpleArrayData': arrays },
+            SchemaData: { attributes: { schemaUrl: '#gotrails' }, 'gx:SimpleArrayData': arrays },
         };
     }
 

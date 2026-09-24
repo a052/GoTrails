@@ -6,7 +6,7 @@
     "types": "dist/index.d.ts",
     "repository": {
         "type": "git",
-        "url": "https://github.com/gpxstudio/gpx.studio.git",
+        "url": "https://github.com/a052/GoTrails.git",
         "directory": "gpx"
     },
     "private": true,

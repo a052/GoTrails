@@ -15,10 +15,10 @@
             <Button
                 variant="link"
                 class="h-6 px-0 has-[>svg]:px-0 text-muted-foreground"
-                href="https://github.com/a052/gpx.studio/blob/main/LICENSE"
+                href="https://github.com/a052/GoTrails/blob/main/LICENSE"
                 target="_blank"
             >
-                MIT © 2026 gpx.studio
+                MIT © 2026 GoTrails
             </Button>
             <div class="mt-3 flex flex-row gap-1.5">
                 <LanguageSelect />
@@ -61,7 +61,7 @@
                 <Button
                     variant="link"
                     class="h-6 px-0 has-[>svg]:px-0 text-muted-foreground"
-                    href="https://github.com/a052/gpx.studio"
+                    href="https://github.com/a052/GoTrails"
                     target="_blank"
                 >
                     <Logo company="github" class="h-4 fill-muted-foreground" />

@@ -23,35 +23,33 @@ export async function handle({ event, resolve }) {
     const htmlTag = `<html lang="${language}" translate="no">`;
 
     let headTag = `<head>
-    <title>gpx.studio — ${title}</title>
+    <title>GoTrails — ${title}</title>
     <script type="application/ld+json">
     {
         "@context": "https://schema.org",
         "@type": "WebSite",
-        "name": "gpx.studio",
-        "url": "https://gpx.studio"
+        "name": "GoTrails",
+        "url": "https://gotrails.vercel.app"
     }
     </script>
     <meta name="description" content="${description}" />
-    <meta property="og:title" content="gpx.studio — ${title}" />
+    <meta property="og:title" content="GoTrails — ${title}" />
     <meta property="og:description" content="${description}" />
-    <meta name="twitter:title" content="gpx.studio — ${title}" />
+    <meta name="twitter:title" content="GoTrails — ${title}" />
     <meta name="twitter:description" content="${description}" />
-    <meta property="og:image" content="https://gpx.studio${base}/og_logo.png" />
-    <meta property="og:url" content="https://gpx.studio/" />
+    <meta property="og:image" content="https://gotrails.vercel.app${base}/og_logo.png" />
+    <meta property="og:url" content="https://gotrails.vercel.app/" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="gpx.studio" />
+    <meta property="og:site_name" content="GoTrails" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:image" content="https://gpx.studio${base}/og_logo.png" />
-    <meta name="twitter:url" content="https://gpx.studio/" />
-    <meta name="twitter:site" content="@gpxstudio" />
-    <meta name="twitter:creator" content="@gpxstudio" />
-    <link rel="alternate" hreflang="x-default" href="https://gpx.studio${getURLForLanguage('en', path)}" />
+    <meta name="twitter:image" content="https://gotrails.vercel.app${base}/og_logo.png" />
+    <meta name="twitter:url" content="https://gotrails.vercel.app/" />
+    <link rel="alternate" hreflang="x-default" href="https://gotrails.vercel.app${getURLForLanguage('en', path)}" />
     <link rel="manifest" href="/${language}.manifest.webmanifest" />`;
 
     if (page !== '404') {
         for (let lang of Object.keys(languages)) {
-            headTag += `   <link rel="alternate" hreflang="${lang}" href="https://gpx.studio${getURLForLanguage(lang, path)}" />
+            headTag += `   <link rel="alternate" hreflang="${lang}" href="https://gotrails.vercel.app${getURLForLanguage(lang, path)}" />
 `;
         }
     }

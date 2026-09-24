@@ -3,22 +3,22 @@
     import { base } from '$app/paths';
     import type { HTMLImgAttributes } from 'svelte/elements';
 
-    // `others` is spread onto the <img> in the gpx.studio branch; the inline-SVG branches only
+    // `others` is spread onto the <img> in the GoTrails branch; the inline-SVG branches only
     // read `others.class`, which HTMLImgAttributes also covers.
     let {
         iconOnly = false,
-        company = 'gpx.studio',
+        company = 'GoTrails',
         ...others
     }: {
         iconOnly?: boolean;
-        company?: 'gpx.studio' | 'github' | 'facebook' | 'reddit';
+        company?: 'GoTrails' | 'github' | 'facebook' | 'reddit';
     } & HTMLImgAttributes = $props();
 </script>
 
-{#if company === 'gpx.studio'}
+{#if company === 'GoTrails'}
     <img
         src="{base}/{iconOnly ? 'icon' : 'logo'}{mode.current === 'dark' ? '-dark' : ''}.svg"
-        alt="Logo of gpx.studio."
+        alt="Logo of GoTrails."
         {...others}
     />
 {:else if company === 'github'}

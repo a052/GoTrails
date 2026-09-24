@@ -33,7 +33,7 @@ function safeUrl(
     } catch {
         // Values without a scheme are common in OSM `website` tags ("www.example.com"). Retrying
         // them as https keeps the link pointing at the intended host, instead of emitting a
-        // relative href that resolves against gpx.studio itself. Anything with a scheme — including
+        // relative href that resolves against GoTrails itself. Anything with a scheme — including
         // `javascript:` — parses above and is rejected below, so it never reaches this branch.
         if (!fallbackToHttps) {
             return undefined;
